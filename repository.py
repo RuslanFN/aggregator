@@ -106,7 +106,7 @@ class PlaceRepository:
         return place
 
 class SyncRepository:
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
     async def get_last_sync_or_none(self):
