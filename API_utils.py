@@ -1,7 +1,11 @@
+from aiohttp import ClientSession
+from schemas import EventsApiResponse, EventApiResponse
+from typing import List
 import os
 import dotenv
-from aiohttp import ClientSession
-from schemas import EventsApiResponse
+from config import get_logger
+
+logger = get_logger(__name__)
 dotenv.load_dotenv()
 
 base_url = os.getenv("BASE_URL")
@@ -22,22 +26,21 @@ async def get_http(
 async def get_all_events(
     client: ClientSession, 
     date_from: str = '2000-01-01',
-    ) -> EventsApiResponse:
-    page = page
-    page_size = page_size
+    ) -> List[EventApiResponse]:
     url = f'{base_url}{"/api/events/"}'
-    events = await get_http(
+    events_json = await get_http(
         client,
         url=url, 
         params = {'changed_at': date_from})
-    events_json = await events.json()
-    events_valid = EventsApiResponse(events_json)
+    events_valid = EventsApiResponse(**events_json)
+    results = [] 
+    results.extend(events_valid.results)
+    
     while events_valid.next:
-        new_events = await get_http(
+        logger.info(events_valid.next)
+        events_json = await get_http(
                 client,
-                url=url, 
-                params = {'changed_at': date_from})
-        new_events_json = await new_events.json()
-        new_events_valid = EventsApiResponse(new_events_json)
-        events_valid.model_extend(new_events_valid)
-    return events_valid
+                url=events_valid.next)
+        events_valid = EventsApiResponse(**events_json)
+        results.extend(events_valid.results)
+    return results

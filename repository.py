@@ -1,10 +1,14 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from sqlalchemy.orm import joinedload 
-from models import Event, Place, Sync
+from models import Event, Place, SyncMetaData
 from datetime import datetime
 from typing import List
 from uuid import UUID
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
 
 class EventRepository:
     def __init__(self, session: AsyncSession):
@@ -13,9 +17,21 @@ class EventRepository:
     def get_event_stmt(self):
         stmt = (
             select(Event)
-            .order_by(Event.changed_at.desc())
+            .order_by(Event.external_changed_at.desc())
             .options(joinedload(Event.place))
             )
+        return stmt
+    def get_event_stmt_by_page(
+            self, 
+            date_from: datetime,
+            page: int,
+            page_size: int):
+        offset = (page - 1) * page_size
+        stmt = (
+            self.get_event_stmt()
+            .where(Event.external_changed_at > date_from)
+            .offset(offset)
+            .limit(page_size))
         return stmt
     
     async def get_events(self) -> List[Event]:
@@ -23,10 +39,22 @@ class EventRepository:
         events = await self.session.execute(stmt)
         return events.scalars().all()
     
-    async def get_event_later_than(self, changed_at: datetime) -> List[Event]:
-        stmt = self.get_event_stmt().where(Event.changed_at > changed_at)
+    async def get_count_event(self, date_from: datetime):
+        stmt = (select(func.count()).select_from(Event)
+                .where(Event.external_changed_at > date_from))
+        count_query = await self.session.execute(stmt)
+        count = count_query.scalar_one()
+        return count
+
+    async def get_event_later_than(
+        self, 
+        changed_at: datetime,
+        page: int = 1,
+        page_size: int = 20) -> List[Event]:
+        stmt = self.get_event_stmt_by_page(changed_at, page, page_size)
         events_query = await self.session.execute(stmt)
-        return events_query.scalars().all()
+        events = events_query.scalars().all()
+        return events
 
     async def get_event_by_id(self, event_id: int) -> Event:
         stmt = select(Event).where(Event.id == event_id)
@@ -88,7 +116,7 @@ class PlaceRepository:
         external_id: UUID,
         name: str,
         city: str,
-        adress: str,
+        address: str,
         seats_pattern: str) -> Place:
         stmt = select(Place).where(Place.external_id == external_id)
         place_query = await self.session.execute(stmt)
@@ -99,7 +127,7 @@ class PlaceRepository:
             external_id = external_id,
             name = name,
             city = city,
-            adress = adress,
+            address = address,
             seats_pattern = seats_pattern
             )
         self.session.add(place)
@@ -110,7 +138,7 @@ class SyncRepository:
         self.session = session
 
     async def get_last_sync_or_none(self):
-        stmt = select(Sync).order_by(desc(Sync.changed_at)).limit(1)
+        stmt = select(SyncMetaData).order_by(desc(SyncMetaData.changed_at)).limit(1)
         last_synce = await self.session.execute(stmt)
         return last_synce.scalar_one_or_none()
 

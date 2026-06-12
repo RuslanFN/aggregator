@@ -22,7 +22,7 @@ class PlaceApiResponse(BaseModel):
     id: UUID
     name: str
     city: str
-    adress: str
+    address: str
     seats_pattern: str
     changed_at: datetime
     created_at: datetime
@@ -43,3 +43,26 @@ class EventsApiResponse(BaseModel):
     next: str | None = Field(default=None)
     previous: str | None = Field(default=None)
     results: List[EventApiResponse]
+
+class PlaceResponse(BaseModel):
+    id: UUID = Field(alias='external_id')
+    name: str
+    city: str
+    address: str
+
+class EventResponse(BaseModel):
+    id: UUID = Field(alias='external_id')
+    name: str
+    event_time: datetime
+    registration_deadline: datetime
+    status: str
+    number_of_visitors: int
+    place: PlaceResponse
+    status_changed_at: datetime
+
+
+class EventsResponse(BaseModel):
+    count: int
+    next: str|None = Field(default=None)
+    previous: str|None = Field(default=None)
+    results: List[EventResponse]
