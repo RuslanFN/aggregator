@@ -76,7 +76,7 @@ class EventService:
             next_page = f'{host_name}/api/events/?page={page+1}&page_size={page_size}&date_from={date_from}'
         else:
             next_page = None
-        if page_count > 1:
+        if page > 1:
             previus_page = f'{host_name}/api/events/?page={page-1}&page_size={page_size}&date_from={date_from}'
         else:
             previus_page = None
